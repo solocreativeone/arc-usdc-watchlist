@@ -1,0 +1,16 @@
+{
+  "name": "arc-usdc-watchlist",
+  "version": "0.1.0",
+  "description": "On-chain watchlist registry + Telegram bot that alerts on USDC transfers on Arc mainnet",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy:arc": "hardhat run scripts/deploy.js --network arcMainnet",
+    "test": "hardhat test"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "dotenv": "^16.4.5",
+    "hardhat": "^2.22.0"
+  },
+  "license": "MIT"
+}

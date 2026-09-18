@@ -1,0 +1,10 @@
+node_modules/
+.env
+bot/.env
+bot/watchlist_store.json
+cache/
+artifacts/
+.venv/
+__pycache__/
+bot/.venv/
+bot/__pycache__/
