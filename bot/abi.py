@@ -1,6 +1,10 @@
-"""Minimal ABIs. Hand-written from the contract source, not from a Hardhat
-build artifact, so there's nothing to compile before the bot can run. If you
-change WatchlistRegistry.sol, update this to match.
+"""Minimal ABI for WatchlistRegistry. Hand-written from the contract source,
+not from a Hardhat build artifact, so there's nothing to compile before the
+bot can run. If you change WatchlistRegistry.sol, update this to match.
+
+No ERC-20 ABI here: USDC on Arc is the chain's native currency (like ETH on
+Ethereum), not a token contract, so transfer monitoring reads native
+transaction values directly rather than filtering token event logs.
 """
 
 REGISTRY_ABI = [
@@ -25,18 +29,4 @@ REGISTRY_ABI = [
         "stateMutability": "view",
         "type": "function",
     },
-]
-
-# Standard ERC-20 Transfer event, used to filter USDC logs on Arc.
-ERC20_TRANSFER_ABI = [
-    {
-        "anonymous": False,
-        "inputs": [
-            {"indexed": True, "name": "from", "type": "address"},
-            {"indexed": True, "name": "to", "type": "address"},
-            {"indexed": False, "name": "value", "type": "uint256"},
-        ],
-        "name": "Transfer",
-        "type": "event",
-    }
 ]
