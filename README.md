@@ -12,9 +12,9 @@ That rules out the usual approach of filtering ERC-20 logs. Instead, the bot sca
 
 ## Features
 
-- `/watch <address>` — start watching an address; anchors the watch on-chain and alerts this chat on future USDC transfers to or from it
-- `/unwatch <address>` — stop watching
-- `/list` — see what this chat is currently watching
+- `/watch <address>` - start watching an address; anchors the watch on-chain and alerts this chat on future USDC transfers to or from it
+- `/unwatch <address>` - stop watching
+- `/list` - see what this chat is currently watching
 - Alerts include the amount, both addresses, and a direct link to the transaction on Arcscan
 
 ## Project layout
