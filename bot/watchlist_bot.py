@@ -68,9 +68,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "📡 <b>Arc USDC Watchlist Bot</b>\n\n"
         "Get alerted the moment USDC moves on an address you care about, on Arc mainnet.\n\n"
-        "👁️ <code>/watch &lt;address&gt;</code> — alert this chat on USDC transfers to/from an address\n"
-        "🔕 <code>/unwatch &lt;address&gt;</code> — stop watching an address\n"
-        "📋 <code>/list</code> — show what this chat is watching",
+        "👁️ <code>/watch &lt;address&gt;</code> - alert this chat on USDC transfers to/from an address\n"
+        "🔕 <code>/unwatch &lt;address&gt;</code> - stop watching an address\n"
+        "📋 <code>/list</code> - show what this chat is watching",
         parse_mode=ParseMode.HTML,
     )
 
