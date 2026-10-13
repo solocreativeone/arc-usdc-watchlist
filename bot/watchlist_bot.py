@@ -11,7 +11,7 @@ in store.py. Extends the same "Telegram intake -> off-chain logic -> Arc
 mainnet anchor" pattern used in NFTpulse and the Arbitrum Watchlist Bot.
 
 Env vars needed (see .env.example in this folder):
-  TELEGRAM_BOT_TOKEN   - from @BotFather
+  TELEGRAM_BOT_TOKEN    - from @BotFather
   ARC_MAINNET_RPC_URL  - Arc mainnet RPC (Alchemy/Blockdaemon/dRPC/QuickNode)
   BOT_PRIVATE_KEY      - wallet the bot uses to call addWatch/removeWatch
   REGISTRY_ADDRESS     - address printed by `npm run deploy:arc`
@@ -22,7 +22,7 @@ import logging
 import os
 
 from dotenv import load_dotenv
-from telegram import Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.ext import Application, CommandHandler, ContextTypes
 from web3 import Web3
@@ -142,6 +142,11 @@ _seen_tx_hashes: set[str] = set()  # in-memory de-dupe across overlapping
 # windows; resets on restart, which is fine for a demo
 
 
+def short_addr(a: str) -> str:
+    """Truncate address for compact mobile notifications (e.g. 0x1234...5678)."""
+    return f"{a[:6]}...{a[-4:]}" if a and len(a) > 10 else a
+
+
 async def poll_transfers(context: ContextTypes.DEFAULT_TYPE):
     """Runs every POLL_INTERVAL_SECONDS. USDC is Arc's native currency, so
     an ordinary "send USDC" is a plain native value transfer, not an
@@ -172,14 +177,33 @@ async def poll_transfers(context: ContextTypes.DEFAULT_TYPE):
 
                 _seen_tx_hashes.add(tx_hash)
                 value = tx["value"] / 1_000_000_000_000_000_000  # 18 decimals
+
+                # Determine direction relative to tracked elements
+                is_incoming = recipient in watched and sender not in watched
+                is_outgoing = sender in watched and recipient not in watched
+
+                if is_incoming:
+                    direction_icon = "🟢"
+                    direction_label = "<b>Inbound Transfer (Received)</b>"
+                elif is_outgoing:
+                    direction_icon = "🔴"
+                    direction_label = "<b>Outbound Transfer (Sent)</b>"
+                else:
+                    direction_icon = "🔵"
+                    direction_label = "<b>Transfer</b>"
+
                 text = (
-                    f"💸 <b>USDC transfer on Arc</b>\n"
-                    f"<code>{tx['from']}</code>\n"
-                    f"   ⬇️\n"
-                    f"<code>{tx['to']}</code>\n\n"
-                    f"💰 <b>{value:.6f} USDC</b>\n"
-                    f'🔗 <a href="https://arcscan.app/tx/{tx_hash}">View on Arcscan</a>'
+                    f"{direction_icon} <b>USDC Alert on Arc</b>\n"
+                    f"{direction_label}\n\n"
+                    f"💰 <b>Amount:</b> <code>{value:,.6f} USDC</code>\n\n"
+                    f"📤 <b>From:</b> <code>{tx['from']}</code>\n"
+                    f"📥 <b>To:</b> <code>{tx['to']}</code>"
                 )
+
+                # Use cleaner interactive keyboard button for block explorer links
+                keyboard = [[InlineKeyboardButton("🔍 View on Arcscan", url=f"https://arcscan.app/tx/{tx_hash}")]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+
                 for address in (sender, recipient):
                     for chat_id in store.chats_for_address(address):
                         await context.bot.send_message(
@@ -187,6 +211,7 @@ async def poll_transfers(context: ContextTypes.DEFAULT_TYPE):
                             text=text,
                             parse_mode=ParseMode.HTML,
                             disable_web_page_preview=True,
+                            reply_markup=reply_markup,
                         )
     except Exception as exc:
         log.error("block scan failed: %s", exc)
