@@ -10,12 +10,17 @@ USDC on Arc is the chain's **native currency**, not an ERC-20 token contract, th
 
 That rules out the usual approach of filtering ERC-20 logs. Instead, the bot scans a recent, fixed window of blocks on every poll and checks each transaction's native `value` field directly against the watchlist. Arc produces a block roughly every half second, so a persisted "resume from here" cursor falls permanently behind; a fixed recent window is the more reliable design for a chain this fast.
 
+## Live deployment
+
+- **Network:** Arc mainnet (chain ID 5042)
+- **Contract:** `WatchlistRegistry` at [`0x5280C9447C1153E34060F1d87C5C01b30FB9ed40`](https://arc.etherscan.io/address/0x5280C9447C1153E34060F1d87C5C01b30FB9ed40)
+
 ## Features
 
 - `/watch <address>` - start watching an address; anchors the watch on-chain and alerts this chat on future USDC transfers to or from it
 - `/unwatch <address>` - stop watching
 - `/list` - see what this chat is currently watching
-- Alerts include the amount, both addresses, and a direct link to the transaction on Arcscan
+- Alerts include the amount, both addresses, and a direct link to the transaction on the block explorer
 
 ## Project layout
 
@@ -61,8 +66,7 @@ The bot's wallet (`BOT_PRIVATE_KEY`) needs a small amount of USDC of its own, si
 
 - **On-chain watches are anchored under the bot's own wallet**, not a per-Telegram-user address, since there's no wallet-linking flow yet. The private routing, which chat gets which alert, lives off-chain in `store.py`. A future version could let each user connect their own wallet.
 - **The JSON store is a demo-scale solution.** It should move to SQLite or Postgres before handling more than a handful of watched addresses.
-- **Alerting uses a fixed, recent block window** (`WINDOW_BLOCKS` in `watchlist_bot.py`), not a persisted cursor, by design, given Arc's block speed. It will not retroactively catch a transfer that happened before the bot started watching an address.
-- The public Arc mainnet explorer is [arcscan.app](https://arcscan.app); `explorer.arc.io` is team-login-gated and not publicly usable.
+- **Alerting uses a fixed, recent block window** (`WINDOW_BLOCKS` in `watchlist_bot.py`), not a persisted cursor, since Arc's fast block time (roughly 2 blocks/sec) makes a lagging cursor fall permanently behind. This trades perfect historical completeness for reliability; it will not retroactively catch a transfer that happened before the bot started watching an address.
 
 ## License
 
