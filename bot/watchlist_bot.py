@@ -12,12 +12,11 @@ mainnet anchor" pattern used in NFTpulse and the Arbitrum Watchlist Bot.
 
 Env vars needed (see .env.example in this folder):
   TELEGRAM_BOT_TOKEN    - from @BotFather
-  ARC_MAINNET_RPC_URL  - Arc mainnet RPC (Alchemy/Blockdaemon/dRPC/QuickNode)
-  BOT_PRIVATE_KEY      - wallet the bot uses to call addWatch/removeWatch
-  REGISTRY_ADDRESS     - address printed by `npm run deploy:arc`
-  POLL_INTERVAL_SECONDS - how often to check for new transfers (default 15)
+  ARC_MAINNET_RPC_URL   - Arc mainnet RPC (Alchemy/Blockdaemon/dRPC/QuickNode)
+  BOT_PRIVATE_KEY       - wallet the bot uses to call addWatch/removeWatch
+  REGISTRY_ADDRESS      - address printed by `npm run deploy:arc`
+  POLL_INTERVAL_SECONDS - how often to check for new transfers (default 30)
 """
-import asyncio
 import logging
 import os
 
@@ -43,7 +42,11 @@ TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 ARC_MAINNET_RPC_URL = os.environ["ARC_MAINNET_RPC_URL"]
 BOT_PRIVATE_KEY = os.environ["BOT_PRIVATE_KEY"]
 REGISTRY_ADDRESS = Web3.to_checksum_address(os.environ["REGISTRY_ADDRESS"])
-POLL_INTERVAL_SECONDS = int(os.environ.get("POLL_INTERVAL_SECONDS", "15"))
+# Default of 30s: scanning the block window below takes a while on a public
+# RPC, and a shorter interval causes skipped runs.
+POLL_INTERVAL_SECONDS = int(os.environ.get("POLL_INTERVAL_SECONDS", "30"))
+
+EXPLORER_TX_URL = "https://arc.etherscan.io/tx/"
 
 w3 = Web3(Web3.HTTPProvider(ARC_MAINNET_RPC_URL))
 bot_account = w3.eth.account.from_key(BOT_PRIVATE_KEY)
@@ -142,11 +145,6 @@ _seen_tx_hashes: set[str] = set()  # in-memory de-dupe across overlapping
 # windows; resets on restart, which is fine for a demo
 
 
-def short_addr(a: str) -> str:
-    """Truncate address for compact mobile notifications (e.g. 0x1234...5678)."""
-    return f"{a[:6]}...{a[-4:]}" if a and len(a) > 10 else a
-
-
 async def poll_transfers(context: ContextTypes.DEFAULT_TYPE):
     """Runs every POLL_INTERVAL_SECONDS. USDC is Arc's native currency, so
     an ordinary "send USDC" is a plain native value transfer, not an
@@ -168,6 +166,8 @@ async def poll_transfers(context: ContextTypes.DEFAULT_TYPE):
                 if tx["value"] == 0:
                     continue
                 tx_hash = tx["hash"].hex()
+                if not tx_hash.startswith("0x"):
+                    tx_hash = "0x" + tx_hash
                 if tx_hash in _seen_tx_hashes:
                     continue
                 sender = tx["from"].lower()
@@ -178,7 +178,7 @@ async def poll_transfers(context: ContextTypes.DEFAULT_TYPE):
                 _seen_tx_hashes.add(tx_hash)
                 value = tx["value"] / 1_000_000_000_000_000_000  # 18 decimals
 
-                # Determine direction relative to tracked elements
+                # Direction relative to the watched addresses
                 is_incoming = recipient in watched and sender not in watched
                 is_outgoing = sender in watched and recipient not in watched
 
@@ -200,19 +200,20 @@ async def poll_transfers(context: ContextTypes.DEFAULT_TYPE):
                     f"📥 <b>To:</b> <code>{tx['to']}</code>"
                 )
 
-                # Use cleaner interactive keyboard button for block explorer links
-                keyboard = [[InlineKeyboardButton("🔍 View on Arcscan", url=f"https://arcscan.app/tx/{tx_hash}")]]
+                keyboard = [[InlineKeyboardButton("🔍 View on Explorer", url=f"{EXPLORER_TX_URL}{tx_hash}")]]
                 reply_markup = InlineKeyboardMarkup(keyboard)
 
-                for address in (sender, recipient):
-                    for chat_id in store.chats_for_address(address):
-                        await context.bot.send_message(
-                            chat_id=chat_id,
-                            text=text,
-                            parse_mode=ParseMode.HTML,
-                            disable_web_page_preview=True,
-                            reply_markup=reply_markup,
-                        )
+                # A set, so a chat watching both sides (or a self-send) gets
+                # one alert, not two.
+                chat_ids = set(store.chats_for_address(sender)) | set(store.chats_for_address(recipient))
+                for chat_id in chat_ids:
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text=text,
+                        parse_mode=ParseMode.HTML,
+                        disable_web_page_preview=True,
+                        reply_markup=reply_markup,
+                    )
     except Exception as exc:
         log.error("block scan failed: %s", exc)
         return
